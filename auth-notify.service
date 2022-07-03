@@ -1,0 +1,11 @@
+[Unit]
+Description=auth-notify is a login notification service
+Wants=multi-user.target
+
+[Service]
+ExecStart=/usr/local/bin/auth-notify
+EnvironmentFile=/etc/auth-notify.conf
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
