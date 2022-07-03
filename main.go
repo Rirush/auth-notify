@@ -134,6 +134,11 @@ func main() {
 
 			user, rest := splitSudo[0], splitSudo[1]
 
+			// Ignore command continuations. Maybe this can be handled at a later date.
+			if strings.Contains(rest, "(command continued)") {
+				continue
+			}
+
 			failed := strings.Contains(rest, "incorrect password")
 
 			entries := strings.Split(rest, " ; ")
