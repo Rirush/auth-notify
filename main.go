@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/exec"
 	"strings"
 	"time"
 )
@@ -55,6 +56,31 @@ func SendMessage(chat, token, message string) error {
 	}
 
 	return nil
+}
+
+func TryGeoIP(ip string) string {
+	// If `geoiplookup` is not available, don't attempt to call it
+	_, err := exec.LookPath("geoiplookup")
+	if err != nil {
+		return ""
+	}
+
+	cmd := exec.Command("geoiplookup", ip)
+
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return ""
+	}
+
+	outStr := string(out)
+	outStr = strings.Trim(outStr, "\n")
+	_, country, _ := strings.Cut(outStr, ": ")
+
+	if strings.HasPrefix(country, "can't") || strings.HasPrefix(country, "IP") {
+		return ""
+	}
+
+	return country
 }
 
 func main() {
@@ -118,10 +144,19 @@ func main() {
 
 			method, user, ip := sshFields[1], sshFields[3], sshFields[5]
 
-			fmt.Printf("new ssh session for user %v (from %v; using %v)\n", user, ip, method)
-			err = SendMessage(telegramChat, telegramToken,
-				fmt.Sprintf("new ssh session started by user %v\n\nfrom: %v\nmethod: %v\nhostname: %v",
-					user, ip, method, hostname))
+			country := TryGeoIP(ip)
+
+			if country == "" {
+				fmt.Printf("new ssh session for user %v (from %v; using %v)\n", user, ip, method)
+				err = SendMessage(telegramChat, telegramToken,
+					fmt.Sprintf("new ssh session started by user %v\n\nfrom: %v\nmethod: %v\nhostname: %v",
+						user, ip, method, hostname))
+			} else {
+				fmt.Printf("new ssh session for user %v (from %v; using %v; country %v)\n", user, ip, method, country)
+				err = SendMessage(telegramChat, telegramToken,
+					fmt.Sprintf("new ssh session started by user %v\n\nfrom: %v\nmethod: %v\nhostname: %v\ncountry: %v\n",
+						user, ip, method, hostname, country))
+			}
 			if err != nil {
 				fmt.Printf("could not send message: %v\n", err)
 			}
